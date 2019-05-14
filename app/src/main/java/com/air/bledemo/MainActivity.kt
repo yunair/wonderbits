@@ -19,7 +19,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import cn.wonderbits.ble.BleScanDevice
 import cn.wonderbits.ble.IConnectCallback
 import cn.wonderbits.ble.IScanCallback
-import cn.wonderbits.ble.WonderBitsBle
+import cn.wonderbits.ble.WBBle
 import kotlinx.android.synthetic.main.activity_main.*
 
 private const val KEY_SP = "demo"
@@ -39,14 +39,16 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        WonderBitsBle.init(this)
+        WBBle.init(this)
+            .setDebuggable(true) // 会输出日志和错误toast
+
         setRl(View.GONE)
         // Initializes Bluetooth adapter.
 
         rv.layoutManager = LinearLayoutManager(this)
         rv.adapter = adapter
         adapter.setClickAction {
-            WonderBitsBle.get().connectDevice(this, it, object : IConnectCallback {
+            WBBle.get().connectDevice(this, it, object : IConnectCallback {
                 override fun onConnected() {
                     runOnUiThread {
                         DeviceScanActivity.launch(this@MainActivity)
@@ -76,7 +78,7 @@ class MainActivity : AppCompatActivity() {
                 commandAdapter.add(content)
             }
             content.replace("\"", "\'")
-            WonderBitsBle.get().writeCommand(content)
+//            WBBle.get().writeCommand(content)
         }
 
         val requestAdapter = ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, arrayListOf())
@@ -89,7 +91,7 @@ class MainActivity : AppCompatActivity() {
             }
 //            val content =
 //                "display1.get_button_state()+display1.get_button_state()+display1.get_button_state()+display1.get_button_state()+display1.get_button_state()+display1.get_button_state()+display1.get_button_state()+display1.get_button_state()"
-            WonderBitsBle.get().writeRequest(content)
+//            WBBle.get().writeRequest(content)
         }
     }
 
@@ -146,9 +148,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startScan() {
-        WonderBitsBle.get().startScan(object : IScanCallback {
+        WBBle.get().startScan(object : IScanCallback {
             override fun onFailed(msg: String) {
-                WonderBitsBle.get().requestBluetoothEnable(this@MainActivity)
+                WBBle.get().requestBluetoothEnable(this@MainActivity)
                 Log.e(TAG, msg)
             }
 

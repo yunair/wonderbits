@@ -9,12 +9,13 @@ import android.os.Bundle
 import android.util.Log
 import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
-import cn.wonderbits.ble.WonderBitsBle
+import cn.wonderbits.ble.WBBle
 import kotlinx.android.synthetic.main.activity_device_scan.*
 
 class DeviceScanActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+//        requestWindowFeature(Window.FEATURE_NO_TITLE)
         setContentView(R.layout.activity_device_scan)
 
         web.settings.apply {
@@ -55,8 +56,8 @@ class DeviceScanActivity : AppCompatActivity() {
                 Log.d("DeviceScanActivity", message ?: "")
             }
         }
-        web.loadUrl("file:///android_asset/index.html")
-//        web.loadUrl("https://www.b4x.com:51041/")
+//        web.loadUrl("file:///android_asset/index.html")
+        web.loadUrl("http://scratch.wonderbits.cn/")
     }
 
     companion object {
@@ -67,12 +68,12 @@ class DeviceScanActivity : AppCompatActivity() {
     }
 
     /*override fun onStop() {
-        WonderBitsBle.get().close()
+        WBBle.get().close()
         super.onStop()
     }*/
 
     override fun onDestroy() {
-        WonderBitsBle.get().close()
+        WBBle.get().close()
         super.onDestroy()
     }
 }

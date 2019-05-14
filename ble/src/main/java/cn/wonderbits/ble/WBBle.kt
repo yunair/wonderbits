@@ -31,7 +31,7 @@ private val WRITE_CHARACTERISTIC_UUID = UUID.fromString("6E400003-B5A3-F393-E0A9
 private val READ_CHARACTERISTIC_UUID = UUID.fromString("6E400002-B5A3-F393-E0A9-E50E24DCCA9E")
 
 
-class WonderBitsBle private constructor(private val context: Context) {
+class WBBle private constructor(private val context: Context) {
     private val bluetoothAdapter: BluetoothAdapter? by lazy(LazyThreadSafetyMode.NONE) {
         val bluetoothManager =
             context.applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -70,6 +70,8 @@ class WonderBitsBle private constructor(private val context: Context) {
     })
 
     private fun checkMsgList() {
+
+//        handler.sendEmptyMessageAtTime(MSG_CHECK_MSG_LIST, SystemClock.uptimeMillis() + 110)
         handler.sendEmptyMessageDelayed(MSG_CHECK_MSG_LIST, 150)
     }
 
@@ -92,21 +94,26 @@ class WonderBitsBle private constructor(private val context: Context) {
 
 
     companion object {
-        private lateinit var ble: WonderBitsBle
-        fun init(context: Context) {
-            ble = WonderBitsBle(context)
+        private var ble: WBBle? = null
+        @JvmStatic
+        fun init(context: Context): Companion {
+            ble = WBBle(context.applicationContext)
+            return this
         }
 
+        @JvmStatic
         fun setDebuggable(debug: Boolean) {
             WBLog.setDebuggable(debug)
             WBUtils.setToastable(debug)
         }
 
-        fun get(): WonderBitsBle {
-            if (::ble.isLateinit) {
-                return ble
-            } else {
+        @JvmStatic
+        fun get(): WBBle {
+            val ins = ble
+            if (ins == null) {
                 throw IllegalStateException("还未初始化")
+            } else {
+                return ins
             }
         }
     }
@@ -365,7 +372,7 @@ class WonderBitsBle private constructor(private val context: Context) {
     }
 
 
-    fun writeCommand(content: String) {
+    internal fun writeCommand(content: String) {
         keyList.add(content)
         val contents = splitContent(content)
         for (i in contents.indices) {
@@ -375,7 +382,7 @@ class WonderBitsBle private constructor(private val context: Context) {
     }
 
     private val valueCallbacks = arrayListOf<IValueCallback>()
-    fun writeRequest(content: String) {
+    internal fun writeRequest(content: String) {
 //        valueCallbacks.add(callback)
         keyList.add(content)
         val contents = splitContent(content)

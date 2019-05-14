@@ -1,1 +1,5 @@
 /build
+local.properties
+jcenter.gradle
+bintray.gradle
+gradle.properties

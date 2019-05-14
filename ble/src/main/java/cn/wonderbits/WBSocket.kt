@@ -1,6 +1,6 @@
 package cn.wonderbits
 
-import cn.wonderbits.ble.WonderBitsBle
+import cn.wonderbits.ble.WBBle
 import com.corundumstudio.socketio.Configuration
 import com.corundumstudio.socketio.SocketIOClient
 import com.corundumstudio.socketio.SocketIOServer
@@ -38,12 +38,12 @@ internal object WBSocket {
         val server = SocketIOServer(config)
 
         server.addEventListener<String>("mfe-message", String::class.java) { client, data, ackRequest ->
-            WonderBitsBle.get().writeCommand(data)
+            WBBle.get().writeCommand(data)
             //            server.broadcastOperations.sendEvent("mfe-message", data)
         }
 
         server.addEventListener<String>("mfe-reporter", String::class.java) { client, data, ackRequest ->
-            WonderBitsBle.get().writeRequest(data)
+            WBBle.get().writeRequest(data)
             //            server.broadcastOperations.sendEvent("mfe-message", data)
         }
 
