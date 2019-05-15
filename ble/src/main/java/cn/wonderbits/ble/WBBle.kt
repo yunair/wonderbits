@@ -15,7 +15,6 @@ import cn.wonderbits.WBUtils
 import java.io.UnsupportedEncodingException
 import java.nio.charset.Charset
 import java.util.*
-import kotlin.collections.ArrayList
 
 private const val SCAN_PERIOD: Long = 1000
 private const val REQUEST_ENABLE_BT = 1
@@ -62,8 +61,9 @@ class WBBle private constructor(private val context: Context) {
 
                 writeContent(msg)
 
+            } else {
+                checkMsgList()
             }
-            checkMsgList()
         }
 
         return@Callback false
@@ -72,7 +72,7 @@ class WBBle private constructor(private val context: Context) {
     private fun checkMsgList() {
 
 //        handler.sendEmptyMessageAtTime(MSG_CHECK_MSG_LIST, SystemClock.uptimeMillis() + 110)
-        handler.sendEmptyMessageDelayed(MSG_CHECK_MSG_LIST, 150)
+        handler.sendEmptyMessageDelayed(MSG_CHECK_MSG_LIST, 100)
     }
 
     private var scanning: Boolean = false
@@ -134,10 +134,16 @@ class WBBle private constructor(private val context: Context) {
 
     private var connectCallback: IConnectCallback? = null
     private var receivedMsg = ""
-    fun connectDevice(content: Context, device: BluetoothDevice, callback: IConnectCallback) {
+    fun connectDevice(content: Context, address: String, callback: IConnectCallback) {
 //        WBSocket.stop()
         this.connectCallback = callback
-        gatt = device.connectGatt(content, false, gattClientCallback)
+        if (BluetoothAdapter.checkBluetoothAddress(address)) {
+            val device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address)
+            gatt = device.connectGatt(content, true, gattClientCallback)
+        } else {
+            WBUtils.toast(context, "蓝牙地址不合法")
+            WBLog.e("蓝牙地址不合法 $address")
+        }
     }
 
     private var bleScanCallback: IScanCallback? = null
@@ -150,14 +156,7 @@ class WBBle private constructor(private val context: Context) {
         }
 
         disconnectGattServer()
-        val filters = ArrayList<ScanFilter>()
-        /*val wonderbitsDeviceNames = arrayListOf("wonderbits", "liuziyuan250")
-        for (deviceName in wonderbitsDeviceNames) {
-            val scanFilter = ScanFilter.Builder()
-                .setDeviceName(deviceName)
-                .build()
-            filters.add(scanFilter)
-        }*/
+        val filters = arrayListOf<ScanFilter>()
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
             .build()
@@ -170,7 +169,6 @@ class WBBle private constructor(private val context: Context) {
             }, SCAN_PERIOD)
         }
     }
-
 
     private val gattClientCallback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
@@ -219,18 +217,39 @@ class WBBle private constructor(private val context: Context) {
             }
         }
 
-        /*override fun onCharacteristicWrite(
+        override fun onCharacteristicChanged(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic) {
+            super.onCharacteristicChanged(gatt, characteristic)
+            readCharacteristic(characteristic)
+        }
+
+        override fun onCharacteristicWrite(
             gatt: BluetoothGatt?,
             characteristic: BluetoothGattCharacteristic?,
             status: Int
         ) {
             super.onCharacteristicWrite(gatt, characteristic, status)
-        }*/
-
-        override fun onCharacteristicChanged(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic) {
-            super.onCharacteristicChanged(gatt, characteristic)
-            readCharacteristic(characteristic)
+//            WBLog.d("onCharacteristicWrite")
+            checkMsgList()
         }
+
+        /* override fun onCharacteristicRead(
+             gatt: BluetoothGatt?,
+             characteristic: BluetoothGattCharacteristic?,
+             status: Int
+         ) {
+             super.onCharacteristicRead(gatt, characteristic, status)
+             WBLog.d("onCharacteristicRead")
+         }
+
+         override fun onDescriptorRead(gatt: BluetoothGatt?, descriptor: BluetoothGattDescriptor?, status: Int) {
+             super.onDescriptorRead(gatt, descriptor, status)
+             WBLog.d("onDescriptorRead")
+         }
+
+         override fun onDescriptorWrite(gatt: BluetoothGatt?, descriptor: BluetoothGattDescriptor?, status: Int) {
+             super.onDescriptorWrite(gatt, descriptor, status)
+             WBLog.d("onDescriptorWrite")
+         }*/
     }
 
     private fun readCharacteristic(characteristic: BluetoothGattCharacteristic) {
@@ -371,6 +390,23 @@ class WBBle private constructor(private val context: Context) {
         processCurrent()
     }
 
+    private fun resetKey(content: String) {
+        msgList.add(0, content)
+        if (!isRequest && !isCommand) {
+            return
+        }
+        keyList.add(0, waitFinishedKey)
+        if (isRequest) {
+            isRequest = false
+            msgList.add(1, MARK_REQUEST)
+        } else if (isCommand) {
+            isCommand = false
+            msgList.add(1, MARK_COMMAND)
+        }
+
+        waitFinishedKey = ""
+    }
+
 
     internal fun writeCommand(content: String) {
         keyList.add(content)
@@ -381,7 +417,7 @@ class WBBle private constructor(private val context: Context) {
         msgList.add(MARK_COMMAND)
     }
 
-    private val valueCallbacks = arrayListOf<IValueCallback>()
+    //    private val valueCallbacks = arrayListOf<IValueCallback>()
     internal fun writeRequest(content: String) {
 //        valueCallbacks.add(callback)
         keyList.add(content)
@@ -411,14 +447,15 @@ class WBBle private constructor(private val context: Context) {
             WBLog.d("write value $value")
             characteristic.value = value.toByteArray(Charset.forName("UTF-8"))
             val result = it.writeCharacteristic(characteristic)
-            if (!result) {
-                WBUtils.toast(context, "写入数据失败")
-                WBSocket.sendEvent(waitFinishedKey, "wonderbits_failed")
-                receiveNextMsg()
-                msgList.add(0, "\r\n")
-            }
             WBLog.d("write result: $result")
-            index++
+            if (!result) {
+//                WBUtils.toast(context, "写入数据失败")
+//                WBSocket.sendEvent(waitFinishedKey, "wonderbits_failed")
+//                receiveNextMsg()
+                resetKey(content)
+            } else {
+                index++
+            }
         }
     }
 

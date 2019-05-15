@@ -2,13 +2,19 @@ package cn.wonderbits.ble;
 
 import android.bluetooth.BluetoothDevice;
 
-public class BleScanDevice {
+import java.io.Serializable;
+
+public class BleScanDevice implements Serializable {
     private int rssi;
+    private String name;
     private BluetoothDevice device;
 
     public BleScanDevice(int rssi, BluetoothDevice device) {
         this.rssi = rssi;
         this.device = device;
+        if (device != null) {
+            this.name = device.getName();
+        }
     }
 
     public int getRssi() {
@@ -25,5 +31,9 @@ public class BleScanDevice {
 
     public void setDevice(BluetoothDevice device) {
         this.device = device;
+    }
+
+    public String getName() {
+        return name;
     }
 }
