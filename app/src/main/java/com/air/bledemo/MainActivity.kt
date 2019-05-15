@@ -1,18 +1,11 @@
 package com.air.bledemo
 
-import android.Manifest.permission.ACCESS_FINE_LOCATION
-import android.bluetooth.BluetoothAdapter
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
-import android.os.Handler
 import android.util.Log
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -20,6 +13,7 @@ import cn.wonderbits.ble.BleScanDevice
 import cn.wonderbits.ble.IConnectCallback
 import cn.wonderbits.ble.IScanCallback
 import cn.wonderbits.ble.WBBle
+import com.google.gson.Gson
 import kotlinx.android.synthetic.main.activity_main.*
 
 private const val KEY_SP = "demo"
@@ -48,7 +42,7 @@ class MainActivity : AppCompatActivity() {
         rv.layoutManager = LinearLayoutManager(this)
         rv.adapter = adapter
         adapter.setClickAction {
-            WBBle.get().connectDevice(this, it, object : IConnectCallback {
+            WBBle.get().connectDevice(this, it.address, object : IConnectCallback {
                 override fun onConnected() {
                     runOnUiThread {
                         DeviceScanActivity.launch(this@MainActivity)
@@ -147,6 +141,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    val gson = Gson()
     private fun startScan() {
         WBBle.get().startScan(object : IScanCallback {
             override fun onFailed(msg: String) {
@@ -163,55 +158,5 @@ class MainActivity : AppCompatActivity() {
             }
 
         })
-    }
-
-    /*private fun stopScan() {
-        val bleAdapter = bluetoothAdapter
-        val scanner = bleAdapter?.bluetoothLeScanner
-        if (scanning && bleAdapter != null && bleAdapter.isEnabled && scanner != null) {
-            scanner.stopScan(scanCallback)
-            scanComplete()
-        }
-
-        scanning = false
-    }
-
-    private fun scanComplete() {
-        if (scanResults.isEmpty()) {
-            return
-        }
-        adapter.clear()
-        for (device in scanResults.entries) {
-            adapter.add(device.value)
-            Log.d(TAG, "Found device: ${device.key}")
-        }
-    }
-
-    private fun hasPermissions(): Boolean {
-        val bleAdapter = bluetoothAdapter
-        if (bleAdapter == null || bleAdapter.isDisabled) {
-            requestBluetoothEnable()
-            return false
-        }
-
-        return true
-    }*/
-
-    @RequiresApi(Build.VERSION_CODES.M)
-    private fun hasLocationPermissions(): Boolean {
-        return checkSelfPermission(ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-    }
-
-    @RequiresApi(Build.VERSION_CODES.M)
-    private fun requestLocationPermission() {
-        requestPermissions(arrayOf(ACCESS_FINE_LOCATION), REQUEST_FINE_LOCATION)
-    }
-
-    private val handler = Handler()
-
-
-    private fun requestBluetoothEnable() {
-        val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-        startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT)
     }
 }
