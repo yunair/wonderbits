@@ -1,1 +1,1 @@
-Wonderbits Android BLE 接入SDK
+Wonderbits Android BLE/USB 接入SDK

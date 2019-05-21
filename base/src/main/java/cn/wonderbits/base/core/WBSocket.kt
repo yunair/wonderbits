@@ -1,14 +1,15 @@
-package cn.wonderbits
+package cn.wonderbits.base
 
-import cn.wonderbits.ble.WBBle
 import com.corundumstudio.socketio.Configuration
 import com.corundumstudio.socketio.SocketIOClient
 import com.corundumstudio.socketio.SocketIOServer
 import com.corundumstudio.socketio.listener.ExceptionListener
 import io.netty.channel.ChannelHandlerContext
-
+import org.slf4j.LoggerFactory
 
 internal object WBSocket {
+    private val logger = LoggerFactory.getLogger(WBSocket::class.java.simpleName)
+
     private val server by lazy {
         createServer()
     }
@@ -38,22 +39,21 @@ internal object WBSocket {
         val server = SocketIOServer(config)
 
         server.addEventListener<String>("mfe-message", String::class.java) { client, data, ackRequest ->
-            WBBle.get().writeCommand(data)
+            writer?.writeCommand(data)
             //            server.broadcastOperations.sendEvent("mfe-message", data)
         }
 
         server.addEventListener<String>("mfe-reporter", String::class.java) { client, data, ackRequest ->
-            WBBle.get().writeRequest(data)
+            writer?.writeRequest(data)
             //            server.broadcastOperations.sendEvent("mfe-message", data)
         }
 
         server.addConnectListener {
-            WBLog.d("conntect success")
+            //            WBLog.d("conntect success")
             server.broadcastOperations.sendEvent("connect", "socket已连接")
         }
         server.addDisconnectListener {
-            WBLog.d("disconntect success")
-
+            //            WBLog.d("disconntect success")
             server.broadcastOperations.sendEvent("disconnect", "socket已断开")
         }
         return server
@@ -79,7 +79,7 @@ internal object WBSocket {
         try {
             server.stop()
         } catch (e: Exception) {
-            WBLog.e("", e)
+            logger.error("stop {}", e)
         } finally {
 //            server = createServer()
         }

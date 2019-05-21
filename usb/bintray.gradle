@@ -1,0 +1,30 @@
+apply plugin: 'com.novoda.bintray-release'
+
+def siteUrl = 'https://github.com/yunair/wonderbits'
+
+def readPropertyFromLocalProperties(String key) {
+    Properties properties = new Properties()
+    try {
+        properties.load(project.file('local.properties').newDataInputStream())
+    } catch (Exception e) {
+        println("load local properties failed msg:${e.message}")
+    }
+    return properties.getProperty(key)
+}
+
+
+def USER_NAME = readPropertyFromLocalProperties("USER_NAME")
+def API_KEY = readPropertyFromLocalProperties("API_KEY")
+
+publish {
+    userOrg = ''
+    groupId = GROUP_ID
+    artifactId = POM_ARTIFACT_ID
+    publishVersion = VERSION_NAME
+    uploadName = "wonderbits"
+    desc = 'wonderbits android sdk'
+    website = siteUrl
+    bintrayUser = USER_NAME
+    bintrayKey = API_KEY
+    dryRun = false
+}
