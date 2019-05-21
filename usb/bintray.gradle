@@ -5,7 +5,7 @@ def siteUrl = 'https://github.com/yunair/wonderbits'
 def readPropertyFromLocalProperties(String key) {
     Properties properties = new Properties()
     try {
-        properties.load(project.file('local.properties').newDataInputStream())
+        properties.load(project.rootProject.file('local.properties').newDataInputStream())
     } catch (Exception e) {
         println("load local properties failed msg:${e.message}")
     }
@@ -21,8 +21,8 @@ publish {
     groupId = GROUP_ID
     artifactId = POM_ARTIFACT_ID
     publishVersion = VERSION_NAME
-    uploadName = "wonderbits"
-    desc = 'wonderbits android sdk'
+    uploadName = "wonderbits-usb"
+    desc = 'wonderbits android usb sdk'
     website = siteUrl
     bintrayUser = USER_NAME
     bintrayKey = API_KEY

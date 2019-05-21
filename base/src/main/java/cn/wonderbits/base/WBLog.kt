@@ -2,10 +2,10 @@ package cn.wonderbits.base
 
 import android.util.Log
 
-internal object WBLog {
+object WBLog {
     private var debug = true
 
-    fun setDebuggable(debug: Boolean) {
+    internal fun setDebuggable(debug: Boolean) {
         WBLog.debug = debug
     }
 

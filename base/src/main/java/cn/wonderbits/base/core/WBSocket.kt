@@ -1,4 +1,4 @@
-package cn.wonderbits.base
+package cn.wonderbits.base.core
 
 import com.corundumstudio.socketio.Configuration
 import com.corundumstudio.socketio.SocketIOClient
@@ -9,6 +9,10 @@ import org.slf4j.LoggerFactory
 
 internal object WBSocket {
     private val logger = LoggerFactory.getLogger(WBSocket::class.java.simpleName)
+    private var eventHandler: EventHandler? = null
+    fun setEventHandler(eventHandler: EventHandler) {
+        this.eventHandler = eventHandler
+    }
 
     private val server by lazy {
         createServer()
@@ -39,12 +43,12 @@ internal object WBSocket {
         val server = SocketIOServer(config)
 
         server.addEventListener<String>("mfe-message", String::class.java) { client, data, ackRequest ->
-            writer?.writeCommand(data)
+            eventHandler?.writeCommand(data)
             //            server.broadcastOperations.sendEvent("mfe-message", data)
         }
 
         server.addEventListener<String>("mfe-reporter", String::class.java) { client, data, ackRequest ->
-            writer?.writeRequest(data)
+            eventHandler?.writeRequest(data)
             //            server.broadcastOperations.sendEvent("mfe-message", data)
         }
 

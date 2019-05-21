@@ -1,12 +1,12 @@
-package cn.wonderbits
+package cn.wonderbits.base
 
 import android.content.Context
 import android.widget.Toast
 
-internal object WBUtils {
+object WBUtils {
     private var debug = true
-    fun setToastable(debug: Boolean) {
-        this.debug = debug
+    internal fun setToastable(debug: Boolean) {
+        WBUtils.debug = debug
     }
 
     fun toast(context: Context, text: String) {

@@ -1,5 +1,6 @@
 package cn.wonderbits.ble
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.*
 import android.bluetooth.le.ScanCallback
@@ -9,21 +10,16 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.Intent
 import android.os.Handler
-import cn.wonderbits.WBLog
-import cn.wonderbits.WBSocket
-import cn.wonderbits.WBUtils
+import cn.wonderbits.base.WBBase
+import cn.wonderbits.base.WBLog
+import cn.wonderbits.base.WBUtils
+import cn.wonderbits.base.core.EventHandler
 import java.io.UnsupportedEncodingException
 import java.nio.charset.Charset
 import java.util.*
 
 private const val SCAN_PERIOD: Long = 1000
 private const val REQUEST_ENABLE_BT = 1
-private const val MSG_CHECK_MSG_LIST = 2
-
-private const val MARK_COMMAND = "#_command"
-private const val MARK_REQUEST = "#_request"
-
-private const val KEY_TERMINAL = ">>> "
 
 private val SERVICE_UUID = UUID.fromString("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
 private val WRITE_CHARACTERISTIC_UUID = UUID.fromString("6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
@@ -36,65 +32,25 @@ class WBBle private constructor(private val context: Context) {
             context.applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         bluetoothManager.adapter
     }
+
+    private val eventHandler: EventHandler
+
+    init {
+        eventHandler = BleEventHandler()
+        WBBase.init(eventHandler)
+    }
+
     private val BluetoothAdapter.isDisabled: Boolean
         get() = !isEnabled
-
-    private val handler = Handler(Handler.Callback {
-        if (it.what == MSG_CHECK_MSG_LIST) {
-            if (msgList.isNotEmpty() && needProcessNext()) {
-                val msg = msgList.removeAt(0)
-                // 每次都取后一位, 来判断走到一个命令结束与否
-                if (msgList.isNotEmpty()) {
-                    when (msgList[0]) {
-                        MARK_COMMAND -> {
-                            msgList.removeAt(0)
-                            setCommand()
-                        }
-                        MARK_REQUEST -> {
-                            msgList.removeAt(0)
-                            setRequest()
-                        }
-                        else -> {
-                        }
-                    }
-                }
-
-                writeContent(msg)
-
-            } else {
-                checkMsgList()
-            }
-        }
-
-        return@Callback false
-    })
-
-    private fun checkMsgList() {
-
-//        handler.sendEmptyMessageAtTime(MSG_CHECK_MSG_LIST, SystemClock.uptimeMillis() + 110)
-        handler.sendEmptyMessageDelayed(MSG_CHECK_MSG_LIST, 100)
-    }
 
     private var scanning: Boolean = false
     private var connected = false
     private var initialized = false
-    private var waitFinishedKey = ""
-
-    private fun processNext() {
-        waitFinishedKey = ""
-    }
-
-    private fun processCurrent() {
-        waitFinishedKey = keyList.removeAt(0)
-    }
-
-    private fun needProcessNext(): Boolean {
-        return waitFinishedKey == ""
-    }
-
 
     companion object {
-        private var ble: WBBle? = null
+        @SuppressLint("StaticFieldLeak")
+        private lateinit var ble: WBBle
+
         @JvmStatic
         fun init(context: Context): Companion {
             ble = WBBle(context.applicationContext)
@@ -103,18 +59,12 @@ class WBBle private constructor(private val context: Context) {
 
         @JvmStatic
         fun setDebuggable(debug: Boolean) {
-            WBLog.setDebuggable(debug)
-            WBUtils.setToastable(debug)
+            WBBase.setDebuggable(debug)
         }
 
         @JvmStatic
         fun get(): WBBle {
-            val ins = ble
-            if (ins == null) {
-                throw IllegalStateException("还未初始化")
-            } else {
-                return ins
-            }
+            return ble
         }
     }
 
@@ -133,7 +83,7 @@ class WBBle private constructor(private val context: Context) {
     }
 
     private var connectCallback: IConnectCallback? = null
-    private var receivedMsg = ""
+    private var gatt: BluetoothGatt? = null
     fun connectDevice(content: Context, address: String, callback: IConnectCallback) {
 //        WBSocket.stop()
         this.connectCallback = callback
@@ -160,11 +110,13 @@ class WBBle private constructor(private val context: Context) {
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
             .build()
+        scanResults.clear()
         val scanner = bluetoothAdapter?.bluetoothLeScanner
         scanner?.let {
+
             it.startScan(filters, settings, scanCallback)
             scanning = true
-            handler.postDelayed({
+            Handler().postDelayed({
                 stopScan()
             }, SCAN_PERIOD)
         }
@@ -185,8 +137,8 @@ class WBBle private constructor(private val context: Context) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 connected = true
                 gatt?.discoverServices()
-                WBSocket.start()
-                checkMsgList()
+                WBBase.get().start()
+                eventHandler.checkMsgList()
                 connectCallback?.onConnected()
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 disconnectGattServer()
@@ -229,7 +181,7 @@ class WBBle private constructor(private val context: Context) {
         ) {
             super.onCharacteristicWrite(gatt, characteristic, status)
 //            WBLog.d("onCharacteristicWrite")
-            checkMsgList()
+            eventHandler.checkMsgList()
         }
 
         /* override fun onCharacteristicRead(
@@ -254,41 +206,16 @@ class WBBle private constructor(private val context: Context) {
 
     private fun readCharacteristic(characteristic: BluetoothGattCharacteristic) {
         val bytes = characteristic.value
-        var log = ""
-        for (byte in bytes) {
-            val byteStr = String.format("%02x", byte)
-            log += byteStr
-        }
 //        WBLog.d("log: $log")
         var messageString: String? = null
         try {
             messageString = String(bytes, Charset.forName("UTF-8"))
-//            messageString = messageString.trim()
+            eventHandler.parseResponseFinished(messageString)
+            WBLog.d("Received message isRequest: $messageString")
         } catch (e: UnsupportedEncodingException) {
             WBLog.d("Unable to convert message bytes to string")
         }
 
-        receivedMsg += messageString
-        if (receivedMsg.endsWith(KEY_TERMINAL) && messageString == KEY_TERMINAL) {
-            receivedMsg = receivedMsg.removeSuffix(KEY_TERMINAL)
-            if (isCommand) {
-                // 命令结束，发送key
-
-                WBSocket.sendEvent(waitFinishedKey, "")
-                WBLog.d("Received message $waitFinishedKey isCommand: $receivedMsg")
-            } else if (isRequest) {
-                val msgs = receivedMsg.split("\r\n")
-                WBLog.d("Received message $waitFinishedKey isRequest: ${msgs[0]}")
-//                WBLog.d("Received message isRequest: ${msgs[1]}")
-                WBSocket.sendEvent(waitFinishedKey, msgs[1])
-                // 消息结束，打印此返回值
-                WBLog.d("Received message isRequest: $receivedMsg")
-            }
-
-            receiveNextMsg()
-            return
-        }
-//        WBLog.d("Received message isRequest: $messageString")
     }
 
     private val scanCallback = object : ScanCallback() {
@@ -341,39 +268,73 @@ class WBBle private constructor(private val context: Context) {
         this.bleScanCallback?.onSuccess(list)
     }
 
-    private fun splitContent(content: String): ArrayList<String> {
-        val contentList = arrayListOf<String>()
-        if (content.length > 15) {
-            var subContent = content
-            while (subContent.length > 15) {
-                val needContent = subContent.substring(0, 15)
-                subContent = subContent.removeRange(0, 15)
-                contentList.add(needContent)
+    private inner class BleEventHandler : EventHandler(100) {
+        override fun addToMsgList(content: String) {
+            val contents = splitContent(content)
+            for (i in contents.indices) {
+                msgList.add(contents[i])
             }
-            contentList.add(subContent + "\r\n")
-        } else {
-            contentList.add(content + "\r\n")
-        }
-        return contentList
-    }
-
-    private var index = -1
-
-    private fun getCurrentDataIndex(): String {
-        val cIndex = index + 1
-        return when {
-            cIndex in 0..9 -> "0$cIndex"
-            cIndex >= 100 -> {
-                index = -1
-                "00"
-            }
-            else -> "$cIndex"
         }
 
+        override fun writeContent(content: String) {
+            if (!initialized) {
+                return
+            }
+            gatt?.let {
+                val service = it.getService(SERVICE_UUID)
+                val characteristic = service.getCharacteristic(WRITE_CHARACTERISTIC_UUID)
+                if (characteristic == null) {
+                    WBUtils.toast(context, "无法写入数据")
+                    WBLog.d("can not write value")
+                    return@let
+                }
+                val value = "${getCurrentDataIndex()}$content"
+                WBLog.d("write value $value")
+                characteristic.value = value.toByteArray(Charset.forName("UTF-8"))
+                val result = it.writeCharacteristic(characteristic)
+                WBLog.d("write result: $result")
+                if (!result) {
+                    resetKey(content)
+                } else {
+                    index++
+                }
+            }
+        }
+
+        private fun splitContent(content: String): ArrayList<String> {
+            val contentList = arrayListOf<String>()
+            if (content.length > 15) {
+                var subContent = content
+                while (subContent.length > 15) {
+                    val needContent = subContent.substring(0, 15)
+                    subContent = subContent.removeRange(0, 15)
+                    contentList.add(needContent)
+                }
+                contentList.add(subContent + "\r\n")
+            } else {
+                contentList.add(content + "\r\n")
+            }
+            return contentList
+        }
+
+        private var index = -1
+
+        private fun getCurrentDataIndex(): String {
+            val cIndex = index + 1
+            return when {
+                cIndex in 0..9 -> "0$cIndex"
+                cIndex >= 100 -> {
+                    index = -1
+                    "00"
+                }
+                else -> "$cIndex"
+            }
+
+        }
     }
 
-    private var gatt: BluetoothGatt? = null
-    private var isCommand = false
+
+    /*private var isCommand = false
     private var isRequest = false
 
     // 处理到这个时候需要超时等待
@@ -408,7 +369,7 @@ class WBBle private constructor(private val context: Context) {
     }
 
 
-    internal fun writeCommand(content: String) {
+    override fun writeCommand(content: String) {
         keyList.add(content)
         val contents = splitContent(content)
         for (i in contents.indices) {
@@ -418,7 +379,7 @@ class WBBle private constructor(private val context: Context) {
     }
 
     //    private val valueCallbacks = arrayListOf<IValueCallback>()
-    internal fun writeRequest(content: String) {
+    override fun writeRequest(content: String) {
 //        valueCallbacks.add(callback)
         keyList.add(content)
         val contents = splitContent(content)
@@ -430,7 +391,7 @@ class WBBle private constructor(private val context: Context) {
 
     private var msgList = arrayListOf<String>()
     private var keyList = arrayListOf<String>()
-
+    private var receivedMsg = ""
     private fun writeContent(content: String) {
         if (!initialized) {
             return
@@ -462,7 +423,54 @@ class WBBle private constructor(private val context: Context) {
     private fun receiveNextMsg() {
         receivedMsg = ""
         processNext()
+    }*/
+
+    /*private val handler = Handler(Handler.Callback {
+        if (it.what == MSG_CHECK_MSG_LIST) {
+            if (msgList.isNotEmpty() && needProcessNext()) {
+                val msg = msgList.removeAt(0)
+                // 每次都取后一位, 来判断走到一个命令结束与否
+                if (msgList.isNotEmpty()) {
+                    when (msgList[0]) {
+                        MARK_COMMAND -> {
+                            msgList.removeAt(0)
+                            setCommand()
+                        }
+                        MARK_REQUEST -> {
+                            msgList.removeAt(0)
+                            setRequest()
+                        }
+                        else -> {
+                        }
+                    }
+                }
+
+                writeContent(msg)
+
+            } else {
+                checkMsgList()
+            }
+        }
+
+        return@Callback false
+    })
+
+    private fun checkMsgList() {
+        handler.sendEmptyMessageDelayed(MSG_CHECK_MSG_LIST, 100)
     }
+    private var waitFinishedKey = ""
+
+    private fun processNext() {
+        waitFinishedKey = ""
+    }
+
+    private fun processCurrent() {
+        waitFinishedKey = keyList.removeAt(0)
+    }
+
+    private fun needProcessNext(): Boolean {
+        return waitFinishedKey == ""
+    }*/
 
     private fun disconnectGattServer() {
         connected = false
@@ -478,7 +486,6 @@ class WBBle private constructor(private val context: Context) {
             disconnect()
             close()
         }
-        WBSocket.stop()
-
+        WBBase.get().stop()
     }
 }

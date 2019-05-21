@@ -1,8 +1,9 @@
 apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
 
+apply plugin: 'kotlin-android-extensions'
 android {
     compileSdkVersion 28
-
 
     defaultConfig {
         minSdkVersion 21
@@ -26,8 +27,9 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    implementation 'androidx.appcompat:appcompat:1.0.2'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'androidx.test:runner:1.1.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.1'
+    implementation "com.corundumstudio.socketio:netty-socketio:1.7.8"
 }

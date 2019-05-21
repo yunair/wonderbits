@@ -21,7 +21,6 @@ class DeviceScanActivity : AppCompatActivity() {
         web.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-
         }
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, url: String?): Boolean {
@@ -56,8 +55,8 @@ class DeviceScanActivity : AppCompatActivity() {
                 Log.d("DeviceScanActivity", message ?: "")
             }
         }
-//        web.loadUrl("file:///android_asset/index.html")
-        web.loadUrl("http://scratch.wonderbits.cn/")
+        web.loadUrl("file:///android_asset/index.html")
+//        web.loadUrl("http://scratch.wonderbits.cn/")
     }
 
     companion object {
